@@ -1,0 +1,13 @@
+{
+  "name": "Toasted Almond",
+  "short_name": "Almond",
+  "description": "Calendar and task manager for students. Works offline.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F6EFD9",
+  "theme_color": "#2F1B25",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

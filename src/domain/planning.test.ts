@@ -1,0 +1,74 @@
+import { describe, expect, it } from 'vitest'
+import { atMinute, dayKey, weekDays } from './dates'
+import { itemFromQuickAdd } from './items'
+import { HEAVY_DAY_MINUTES, TEST_PREP, backwardPlan, dailyLoad, weekTotalsBySplit } from './planning'
+import type { Split, WorkBlock } from './types'
+
+const splits: Split[] = [
+  { id: 'hw', name: 'Homework', color: '#CA895F', order: 0, archived: false },
+  { id: 'tests', name: 'Tests', color: '#A15E49', order: 1, archived: false },
+]
+const NOW = atMinute('2026-10-12', 8 * 60)
+
+describe('backwardPlan', () => {
+  it('spaces prep tasks backward from the anchor at 5 pm', () => {
+    const plan = backwardPlan('2026-10-20', TEST_PREP)
+    expect(plan.map((p) => dayKey(p.dueAt))).toEqual(['2026-10-13', '2026-10-16', '2026-10-18', '2026-10-19'])
+    expect(new Date(plan[0].dueAt).getHours()).toBe(17)
+    expect(plan[0].templateId).toBe('gather')
+  })
+
+  it('returns nothing for an empty template list', () => {
+    expect(backwardPlan('2026-10-20', [])).toEqual([])
+  })
+})
+
+describe('dailyLoad', () => {
+  const testItem = itemFromQuickAdd({ title: 'Chem test', kind: 'test', splitId: 'tests', summary: '' }, splits, NOW)
+  const hwItem = itemFromQuickAdd({ title: 'Essay', kind: 'homework', splitId: 'hw', summary: '' }, splits, NOW)
+  const day = '2026-10-14'
+  const block = (itemId: string, startHour: number, hours: number): WorkBlock => ({
+    id: `${itemId}-${startHour}`,
+    itemId,
+    start: atMinute(day, startHour * 60),
+    end: atMinute(day, startHour * 60) + hours * 60 * 60_000,
+  })
+
+  it('sums block minutes per split and day', () => {
+    const load = dailyLoad([block(hwItem.id, 9, 2), block(testItem.id, 14, 1)], [hwItem, testItem], [day])
+    expect(load[0].totalMinutes).toBe(180)
+    expect(load[0].bySplit).toEqual({ hw: 120, tests: 60 })
+    expect(load[0].heavy).toBe(false)
+  })
+
+  it('flags days over the heavy threshold', () => {
+    const load = dailyLoad([block(hwItem.id, 8, 4), block(testItem.id, 13, 3)], [hwItem, testItem], [day])
+    expect(load[0].totalMinutes).toBe(7 * 60)
+    expect(load[0].totalMinutes).toBeGreaterThan(HEAVY_DAY_MINUTES)
+    expect(load[0].heavy).toBe(true)
+  })
+
+  it('ignores blocks for unknown items and on other days', () => {
+    const stray = { id: 'x', itemId: 'missing', start: atMinute(day, 9 * 60), end: atMinute(day, 10 * 60) }
+    const other = block(hwItem.id, 9, 1)
+    const load = dailyLoad([stray, { ...other, start: atMinute('2026-10-15', 9 * 60), end: atMinute('2026-10-15', 10 * 60) }], [hwItem], [day])
+    expect(load[0].totalMinutes).toBe(0)
+  })
+
+  it('covers every requested day, including empty ones', () => {
+    const days = weekDays(day)
+    const load = dailyLoad([], [], days)
+    expect(load.map((d) => d.key)).toEqual(days)
+    expect(load.every((d) => d.totalMinutes === 0)).toBe(true)
+  })
+})
+
+describe('weekTotalsBySplit', () => {
+  it('adds per-split minutes across days', () => {
+    const totals = weekTotalsBySplit([
+      { key: 'a', totalMinutes: 90, bySplit: { hw: 60, tests: 30 }, heavy: false },
+      { key: 'b', totalMinutes: 60, bySplit: { hw: 60 }, heavy: false },
+    ])
+    expect(totals).toEqual({ hw: 120, tests: 30 })
+  })
+})
