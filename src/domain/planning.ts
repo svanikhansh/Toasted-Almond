@@ -31,6 +31,24 @@ export function backwardPlan(
   }))
 }
 
+export type StudyStep = { topic: string; dayKey: string; dueAt: number }
+
+/**
+ * Spread a test's topics evenly across the days from today up to the day
+ * before the test. Each step is due at 5 pm on its study day. Returns nothing
+ * when there are no topics or no days left to study.
+ */
+export function studyPlan(testStartsAt: number, topics: string[], todayKey: string): StudyStep[] {
+  const lastDay = addDays(dayKey(testStartsAt), -1)
+  const days: string[] = []
+  for (let k = todayKey; k <= lastDay; k = addDays(k, 1)) days.push(k)
+  if (topics.length === 0 || days.length === 0) return []
+  return topics.map((topic, i) => {
+    const day = days[Math.floor((i * days.length) / topics.length)]
+    return { topic, dayKey: day, dueAt: atMinute(day, 17 * 60) }
+  })
+}
+
 export type DayLoad = {
   key: string
   totalMinutes: number

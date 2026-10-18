@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { atMinute, dayKey, formatDayLabel } from '../domain/dates'
 import { itemFromQuickAdd, toggleDone } from '../domain/items'
 import { SPLIT_SWATCHES } from '../domain/palette'
-import { TEST_PREP, TOURNAMENT_PREP, backwardPlan, type PrepTemplate } from '../domain/planning'
+import { TEST_PREP, TOURNAMENT_PREP, backwardPlan, studyPlan, type PrepTemplate } from '../domain/planning'
 import type { Item, ItemKind, Split } from '../domain/types'
 import type { Repo } from '../storage/repo'
 import { EmptyState, ItemRow, KIND_LABEL, SplitMarker, splitStyle } from '../components/common'
@@ -17,6 +17,25 @@ function templatesFor(kind: ItemKind): PrepTemplate[] {
   if (kind === 'test') return TEST_PREP
   if (kind === 'tournament') return TOURNAMENT_PREP
   return []
+}
+
+/** Day-by-day topic plan for an upcoming test with topics. */
+function StudyPlanCard({ item, todayKey }: { item: Item; todayKey: string }) {
+  if (item.kind !== 'test' || item.startsAt == null || item.topics.length === 0) return null
+  const steps = studyPlan(item.startsAt, item.topics, todayKey)
+  if (steps.length === 0) return null
+  return (
+    <section style={{ marginTop: 16 }} aria-label={`Study plan for ${item.title}`}>
+      <h3>Study plan: {item.title}</h3>
+      <ul className="list">
+        {steps.map((s, i) => (
+          <li key={`${s.topic}-${i}`} className="item-meta">
+            {formatDayLabel(s.dayKey)}: {s.topic}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
 }
 
 function kindMeta(item: Item): string {
@@ -248,6 +267,10 @@ export function SplitsView({ splits, items, repo, onOpen }: Props) {
                   ))}
                 </ul>
               )}
+
+              {open.map((item) => (
+                <StudyPlanCard key={`plan-${item.id}`} item={item} todayKey={today} />
+              ))}
 
               {done.length > 0 && (
                 <details style={{ marginTop: 16 }}>

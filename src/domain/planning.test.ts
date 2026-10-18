@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { atMinute, dayKey, weekDays } from './dates'
 import { itemFromQuickAdd } from './items'
-import { HEAVY_DAY_MINUTES, TEST_PREP, backwardPlan, dailyLoad, weekTotalsBySplit } from './planning'
+import {
+  HEAVY_DAY_MINUTES,
+  TEST_PREP,
+  backwardPlan,
+  dailyLoad,
+  studyPlan,
+  weekTotalsBySplit,
+} from './planning'
 import type { Split, WorkBlock } from './types'
 
 const splits: Split[] = [
@@ -20,6 +27,33 @@ describe('backwardPlan', () => {
 
   it('returns nothing for an empty template list', () => {
     expect(backwardPlan('2026-10-20', [])).toEqual([])
+  })
+})
+
+describe('studyPlan', () => {
+  const testAt = atMinute('2026-10-20', 9 * 60)
+
+  it('spreads topics evenly from today to the day before the test', () => {
+    const plan = studyPlan(testAt, ['A', 'B', 'C', 'D'], '2026-10-16')
+    // Study days: 16, 17, 18, 19. Four topics, one per day.
+    expect(plan.map((s) => s.dayKey)).toEqual(['2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19'])
+    expect(plan.map((s) => s.topic)).toEqual(['A', 'B', 'C', 'D'])
+    expect(new Date(plan[0].dueAt).getHours()).toBe(17)
+  })
+
+  it('groups topics when there are more topics than study days', () => {
+    const plan = studyPlan(testAt, ['A', 'B', 'C', 'D'], '2026-10-18')
+    // Study days: 18, 19. Topics A and B land on 18, C and D on 19.
+    expect(plan.map((s) => s.dayKey)).toEqual(['2026-10-18', '2026-10-18', '2026-10-19', '2026-10-19'])
+  })
+
+  it('returns nothing without topics', () => {
+    expect(studyPlan(testAt, [], '2026-10-16')).toEqual([])
+  })
+
+  it('returns nothing when the test is today or already past', () => {
+    expect(studyPlan(testAt, ['A'], '2026-10-20')).toEqual([])
+    expect(studyPlan(testAt, ['A'], '2026-10-21')).toEqual([])
   })
 })
 
