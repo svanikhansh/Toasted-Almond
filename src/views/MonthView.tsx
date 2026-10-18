@@ -32,7 +32,7 @@ export function MonthView({ date, onDateChange, items, splits, onOpen }: Props) 
     for (const key of days) {
       const events = items
         .flatMap((item) => {
-          const o = occurrenceOn(item, key)
+          const o = occurrenceOn(item, key, splitById.get(item.splitId)?.rotationAnchor)
           return o && o.startsAt != null ? [{ item, startsAt: o.startsAt }] : []
         })
         .sort((a, b) => a.startsAt - b.startsAt)

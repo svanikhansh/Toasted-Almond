@@ -6,6 +6,8 @@ export type Split = {
   color: string
   order: number
   archived: boolean
+  /** Any day in an A week. Weeks alternate A and B from this week. */
+  rotationAnchor?: string
 }
 
 export type Subtask = { id: string; title: string; done: boolean }
@@ -25,6 +27,8 @@ export type Recurrence = {
   byWeekday?: number[]
   /** Last day key (YYYY-MM-DD) that can occur. */
   until?: string
+  /** Only occur in A or B weeks of the split's rotation. Unset means every week. */
+  rotation?: 'A' | 'B'
 }
 
 export type ItemBase = {

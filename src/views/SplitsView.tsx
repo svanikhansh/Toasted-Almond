@@ -332,6 +332,15 @@ export function SplitsView({ splits, items, repo, onOpen }: Props) {
                 />
               ))}
             </div>
+            <div className="field">
+              <label htmlFor={`rotation-${s.id}`}>A-week date</label>
+              <input
+                id={`rotation-${s.id}`}
+                type="date"
+                value={s.rotationAnchor ?? ''}
+                onChange={(e) => repo?.putSplit({ ...s, rotationAnchor: e.target.value || undefined })}
+              />
+            </div>
             <div className="split-actions">
               <button type="button" className="btn" onClick={() => move(s, -1)} disabled={index === 0} aria-label={`Move ${s.name} up`}>
                 Up

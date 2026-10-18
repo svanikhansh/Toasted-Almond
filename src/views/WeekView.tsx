@@ -53,7 +53,7 @@ export function WeekView({ date, onDateChange, items, blocks, splits, repo, onOp
     () =>
       days.map((key) => {
         const events = items.flatMap((i) => {
-          const o = occurrenceOn(i, key)
+          const o = occurrenceOn(i, key, splitById.get(i.splitId)?.rotationAnchor)
           return o && o.startsAt != null ? [o] : []
         })
         const dayBlocks = blocks.filter((b) => dayKey(b.start) === key && itemById.has(b.itemId))

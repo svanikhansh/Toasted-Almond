@@ -6,6 +6,7 @@ import {
   dayKey,
   occurrenceOn,
   occursOn,
+  sameRotationWeek,
   weekDays,
 } from './dates'
 import type { Item } from './types'
@@ -37,6 +38,55 @@ describe('day keys', () => {
       '2026-10-16', '2026-10-17', '2026-10-18',
     ])
     expect(weekDays('2026-10-12')[0]).toBe('2026-10-12')
+  })
+})
+
+describe('A/B rotation', () => {
+  // Anchor week is Mon 2026-10-12 (A). Mon 10-19 is B, Mon 10-26 is A.
+  const rotating = (rotation?: 'A' | 'B'): Item => ({
+    ...base,
+    kind: 'homework',
+    className: '',
+    estimateMin: 0,
+    dueAt: atMinute('2026-10-12', 23 * 60),
+    recurrence: { freq: 'weekly', interval: 1, byWeekday: [1], rotation },
+  })
+
+  it('marks alternating weeks A and B from the anchor week', () => {
+    expect(sameRotationWeek('2026-10-12', '2026-10-18')).toBe(true)
+    expect(sameRotationWeek('2026-10-12', '2026-10-19')).toBe(false)
+    expect(sameRotationWeek('2026-10-12', '2026-10-26')).toBe(true)
+    expect(sameRotationWeek('2026-10-12', '2026-10-05')).toBe(false)
+  })
+
+  it('occurs only in A weeks for an A item', () => {
+    const a = rotating('A')
+    expect(occursOn(a, '2026-10-12', '2026-10-12')).toBe(true)
+    expect(occursOn(a, '2026-10-19', '2026-10-12')).toBe(false)
+    expect(occursOn(a, '2026-10-26', '2026-10-12')).toBe(true)
+  })
+
+  it('occurs only in B weeks for a B item', () => {
+    const b = rotating('B')
+    expect(occursOn(b, '2026-10-12', '2026-10-12')).toBe(false)
+    expect(occurrenceOn(b, '2026-10-19', '2026-10-12')).not.toBeNull()
+  })
+
+  it('follows each split anchor separately', () => {
+    // Same item, anchor moved one week later: the A week is now Oct 19.
+    const a = rotating('A')
+    expect(occursOn(a, '2026-10-19', '2026-10-19')).toBe(true)
+    expect(occursOn(a, '2026-10-12', '2026-10-19')).toBe(false)
+  })
+
+  it('uses the item date as the A week when no split anchor is given', () => {
+    expect(occursOn(rotating('A'), '2026-10-12')).toBe(true)
+    expect(occursOn(rotating('A'), '2026-10-19')).toBe(false)
+  })
+
+  it('occurs every week when no rotation is set', () => {
+    expect(occursOn(rotating(), '2026-10-12', '2026-10-12')).toBe(true)
+    expect(occursOn(rotating(), '2026-10-19', '2026-10-12')).toBe(true)
   })
 })
 

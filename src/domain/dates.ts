@@ -97,8 +97,17 @@ export type Occurrence = {
   done: boolean
 }
 
+/**
+ * Whether a day falls in the same alternating week as the anchor. Weeks are
+ * Monday-based and alternate between A and B, starting with the anchor's week.
+ */
+export function sameRotationWeek(anchorKey: string, key: string): boolean {
+  const weeks = Math.round(daysBetween(weekDays(anchorKey)[0], weekDays(key)[0]) / 7)
+  return weeks % 2 === 0
+}
+
 /** Whether an item has an occurrence on the given day. */
-export function occursOn(item: Item, key: string): boolean {
+export function occursOn(item: Item, key: string, rotationAnchor?: string): boolean {
   if (!item.recurrence) {
     if (item.kind === 'tournament') {
       return key >= item.startDate && key <= item.endDate
@@ -107,12 +116,18 @@ export function occursOn(item: Item, key: string): boolean {
     if (item.dueAt != null) return dayKey(item.dueAt) === key
     return false
   }
+  const rot = item.recurrence.rotation
+  if (rot) {
+    // Without a split anchor, the item's own date marks an A week.
+    const isA = sameRotationWeek(rotationAnchor ?? anchorKey(item), key)
+    if (rot === 'A' ? !isA : isA) return false
+  }
   return recurrenceMatches(item.recurrence, anchorKey(item), key)
 }
 
 /** Expand an item into the occurrence for one day, or null. */
-export function occurrenceOn(item: Item, key: string): Occurrence | null {
-  if (!occursOn(item, key)) return null
+export function occurrenceOn(item: Item, key: string, rotationAnchor?: string): Occurrence | null {
+  if (!occursOn(item, key, rotationAnchor)) return null
   const recurring = item.recurrence != null
   const shift = (ms?: number) =>
     ms == null || !recurring ? ms : shiftToDay(ms, key)

@@ -38,7 +38,7 @@ export function TodayView({ date, items, blocks, splits, repo, onOpen }: Props) 
   const rows = useMemo(() => {
     const events: Occurrence[] = []
     for (const item of items) {
-      const occ = occurrenceOn(item, date)
+      const occ = occurrenceOn(item, date, splitById.get(item.splitId)?.rotationAnchor)
       if (occ && occ.startsAt != null) events.push(occ)
     }
     const dayBlocks = blocks.filter((b) => dayKey(b.start) === date && itemById.has(b.itemId))
