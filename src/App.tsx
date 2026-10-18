@@ -3,6 +3,7 @@ import { DataProvider, useData } from './state/DataContext'
 import { usePrefs, type View } from './state/prefs'
 import { dayKey, addDays } from './domain/dates'
 import type { Item } from './domain/types'
+import { IcsImport } from './components/IcsImport'
 import { QuickAdd } from './components/QuickAdd'
 import { ItemDialog } from './components/ItemDialog'
 import { EmptyState, splitStyle } from './components/common'
@@ -175,6 +176,7 @@ function Shell() {
 
       <div className="toolbar">
         <QuickAdd ref={quickAddRef} repo={repo} splits={activeSplits} />
+        <IcsImport repo={repo} splits={activeSplits} />
       </div>
 
       <div className="filters" role="group" aria-label="Show splits">
