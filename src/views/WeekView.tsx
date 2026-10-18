@@ -17,7 +17,7 @@ import {
   unscheduledTasks,
 } from '../domain/items'
 import type { Item, Split, WorkBlock } from '../domain/types'
-import { EmptyState, KIND_LABEL, SplitMarker, dueLabel, splitStyle } from '../components/common'
+import { EmptyState, KIND_LABEL, RepeatMark, SplitMarker, dueLabel, splitStyle } from '../components/common'
 import type { Repo } from '../storage/repo'
 
 const START_HOUR = 7
@@ -34,7 +34,7 @@ type Props = {
   blocks: WorkBlock[]
   splits: Split[]
   repo: Repo | null
-  onOpen: (item: Item) => void
+  onOpen: (item: Item, occurrenceKey?: string) => void
 }
 
 export function WeekView({ date, onDateChange, items, blocks, splits, repo, onOpen }: Props) {
@@ -57,11 +57,11 @@ export function WeekView({ date, onDateChange, items, blocks, splits, repo, onOp
           return o && o.startsAt != null ? [o] : []
         })
         const dayBlocks = blocks.filter((b) => dayKey(b.start) === key && itemById.has(b.itemId))
-        const due = dueOn(items, key)
+        const due = dueOn(items, key, (i) => splitById.get(i.splitId)?.rotationAnchor)
         const overdue = key === today ? overdueBefore(items, key) : []
         return { key, events, dayBlocks, due, overdue }
       }),
-    [days, items, blocks, itemById, today],
+    [days, items, blocks, itemById, splitById, today],
   )
 
   const weekEmpty = columns.every(
@@ -255,21 +255,21 @@ export function WeekView({ date, onDateChange, items, blocks, splits, repo, onOp
                       type="button"
                       className="due-chip overdue"
                       style={splitStyle(splitById.get(item.splitId))}
-                      onClick={() => onOpen(item)}
+                      onClick={() => onOpen(item, c.key)}
                       aria-label={`Overdue: ${item.title}`}
                     >
                       {item.title}
                     </button>
                   ))}
-                  {c.due.map((item) => (
+                  {c.due.map((o) => (
                     <button
-                      key={item.id}
+                      key={`${o.item.id}-${o.key}`}
                       type="button"
                       className="due-chip"
-                      style={splitStyle(splitById.get(item.splitId))}
-                      onClick={() => onOpen(item)}
+                      style={splitStyle(splitById.get(o.item.splitId))}
+                      onClick={() => onOpen(o.item, c.key)}
                     >
-                      {item.title}
+                      {o.title}
                     </button>
                   ))}
                 </div>
@@ -309,10 +309,13 @@ export function WeekView({ date, onDateChange, items, blocks, splits, repo, onOp
                         type="button"
                         className="event fixed"
                         style={{ top: topFor(start), height: heightFor(start, end), ...splitStyle(split) }}
-                        onClick={() => onOpen(o.item)}
+                        onClick={() => onOpen(o.item, o.key)}
                         aria-label={`${o.item.title}, ${formatTime(start)} to ${formatTime(end)}`}
                       >
-                        <span className="event-title">{o.item.title}</span>
+                        <span className="event-title">
+                          {o.item.title}
+                          {o.item.recurrence && <RepeatMark />}
+                        </span>
                         <span className="event-time">{formatTime(start)}</span>
                       </button>
                     )
@@ -329,7 +332,7 @@ export function WeekView({ date, onDateChange, items, blocks, splits, repo, onOp
                         onDragStart={(e) => startDrag(e, MIME_BLOCK, b.id)}
                         style={{ top: topFor(b.start), height: heightFor(b.start, b.end), ...splitStyle(split), cursor: 'grab' }}
                       >
-                        <button type="button" className="item-title event-title" style={{ textAlign: 'left' }} onClick={() => onOpen(item)}>
+                        <button type="button" className="item-title event-title" style={{ textAlign: 'left' }} onClick={() => onOpen(item, c.key)}>
                           {item.title}
                         </button>
                         <span className="event-time">

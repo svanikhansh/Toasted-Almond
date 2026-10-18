@@ -19,7 +19,7 @@ type Props = {
   blocks: WorkBlock[]
   splits: Split[]
   repo: Repo | null
-  onOpen: (item: Item) => void
+  onOpen: (item: Item, occurrenceKey?: string) => void
 }
 
 type Row =
@@ -32,7 +32,10 @@ export function TodayView({ date, items, blocks, splits, repo, onOpen }: Props) 
   const itemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
   const isToday = date === dayKey()
 
-  const due = useMemo(() => dueOn(items, date), [items, date])
+  const due = useMemo(
+    () => dueOn(items, date, (i) => splitById.get(i.splitId)?.rotationAnchor),
+    [items, date, splitById],
+  )
   const overdue = useMemo(() => (isToday ? overdueBefore(items, date) : []), [items, date, isToday])
 
   const rows = useMemo(() => {
@@ -119,13 +122,14 @@ export function TodayView({ date, items, blocks, splits, repo, onOpen }: Props) 
           )}
           {due.length > 0 ? (
             <ul className="list" aria-label="Due today">
-              {due.map((item) => (
+              {due.map((o) => (
                 <ItemRow
-                  key={item.id}
-                  item={item}
-                  split={splitById.get(item.splitId)}
+                  key={`${o.item.id}-${o.key}`}
+                  item={o.item}
+                  title={o.title}
+                  split={splitById.get(o.item.splitId)}
                   dateKey={date}
-                  done={item.completed}
+                  done={o.done}
                   onToggle={toggle}
                   onOpen={onOpen}
                 />
@@ -166,7 +170,7 @@ export function TodayView({ date, items, blocks, splits, repo, onOpen }: Props) 
                   <li key={key}>
                     <time dateTime={new Date(row.start).toISOString()}>{formatTime(row.start)}</time>
                     <div className="event-body" style={{ ['--split' as string]: row.split?.color }}>
-                      <button type="button" className="item-title" onClick={() => onOpen(row.item)}>
+                      <button type="button" className="item-title" onClick={() => onOpen(row.item, date)}>
                         {row.item.title}
                       </button>
                       <div className="item-meta">

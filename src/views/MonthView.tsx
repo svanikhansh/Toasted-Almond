@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { addDays, dayKey, occurrenceOn, parseDayKey, weekDays } from '../domain/dates'
 import { dueOn } from '../domain/items'
 import type { Item, Split } from '../domain/types'
-import { EmptyState, splitStyle } from '../components/common'
+import { EmptyState, RepeatMark, splitStyle } from '../components/common'
 
 const MAX_PILLS = 3
 
@@ -11,7 +11,7 @@ type Props = {
   onDateChange: (key: string) => void
   items: Item[]
   splits: Split[]
-  onOpen: (item: Item) => void
+  onOpen: (item: Item, occurrenceKey?: string) => void
 }
 
 export function MonthView({ date, onDateChange, items, splits, onOpen }: Props) {
@@ -41,12 +41,16 @@ export function MonthView({ date, onDateChange, items, splits, onOpen }: Props) 
           item,
           label: `${new Date(startsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} ${item.title}`,
         }))
-      const deadlines = dueOn(items, key).map((item) => ({ id: `due-${item.id}-${key}`, item, label: item.title }))
+      const deadlines = dueOn(items, key, (i) => splitById.get(i.splitId)?.rotationAnchor).map((o) => ({
+        id: `due-${o.item.id}-${key}`,
+        item: o.item,
+        label: o.title,
+      }))
       const all = [...events, ...deadlines]
       if (all.length) map.set(key, all)
     }
     return map
-  }, [days, items])
+  }, [days, items, splitById])
 
   const hasAny = pillsByDay.size > 0
 
@@ -113,9 +117,10 @@ export function MonthView({ date, onDateChange, items, splits, onOpen }: Props) 
                       type="button"
                       className="pill"
                       style={splitStyle(splitById.get(p.item.splitId))}
-                      onClick={() => onOpen(p.item)}
+                      onClick={() => onOpen(p.item, key)}
                     >
                       {p.label}
+                      {p.item.recurrence && <RepeatMark />}
                     </button>
                   ))}
                   {extra > 0 && <span className="muted pill-more">{extra} more</span>}

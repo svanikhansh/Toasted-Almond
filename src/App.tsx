@@ -40,6 +40,7 @@ function Shell() {
   const { prefs, setView, setTheme, toggleSplit } = usePrefs()
   const [date, setDate] = useState(() => dayKey())
   const [editing, setEditing] = useState<Item | null>(null)
+  const [editingKey, setEditingKey] = useState<string | undefined>(undefined)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const quickAddRef = useRef<HTMLInputElement>(null)
@@ -58,14 +59,16 @@ function Shell() {
     [snapshot.blocks, visibleIds],
   )
 
-  const openItem = useCallback((item: Item) => {
+  const openItem = useCallback((item: Item, occurrenceKey?: string) => {
     setEditing(item)
+    setEditingKey(occurrenceKey)
     setDialogOpen(true)
   }, [])
 
   const closeDialog = useCallback(() => {
     setDialogOpen(false)
     setEditing(null)
+    setEditingKey(undefined)
   }, [])
 
   // Keyboard shortcuts: n = quick add, t/w/m/p/l = views, [ and ] = previous/next period.
@@ -266,7 +269,13 @@ function Shell() {
       </footer>
 
       {dialogOpen && (
-        <ItemDialog item={editing} splits={activeSplits} repo={repo} onClose={closeDialog} />
+        <ItemDialog
+          item={editing}
+          occurrenceKey={editingKey}
+          splits={activeSplits}
+          repo={repo}
+          onClose={closeDialog}
+        />
       )}
     </div>
   )

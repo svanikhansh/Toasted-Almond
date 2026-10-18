@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { atMinute, dayKey, formatDayLabel } from '../domain/dates'
 import { itemFromQuickAdd, toggleDone } from '../domain/items'
 import { SPLIT_SWATCHES } from '../domain/palette'
-import { TEST_PREP, TOURNAMENT_PREP, backwardPlan, studyPlan, type PrepTemplate } from '../domain/planning'
+import { backwardPlan, defaultPrepTemplates, prepTemplatesFor, studyPlan, type PrepTemplate } from '../domain/planning'
 import type { Item, ItemKind, Split } from '../domain/types'
 import type { Repo } from '../storage/repo'
 import { EmptyState, ItemRow, KIND_LABEL, SplitMarker, splitStyle } from '../components/common'
@@ -12,12 +12,6 @@ const DEFAULT_START_MIN = 9 * 60
 const TEST_MINUTES = 90 * 60_000
 
 type DraftPrep = PrepTemplate & { checked: boolean }
-
-function templatesFor(kind: ItemKind): PrepTemplate[] {
-  if (kind === 'test') return TEST_PREP
-  if (kind === 'tournament') return TOURNAMENT_PREP
-  return []
-}
 
 /** Day-by-day topic plan for an upcoming test with topics. */
 function StudyPlanCard({ item, todayKey }: { item: Item; todayKey: string }) {
@@ -35,6 +29,111 @@ function StudyPlanCard({ item, todayKey }: { item: Item; todayKey: string }) {
         ))}
       </ul>
     </section>
+  )
+}
+
+type PrepDraft = { test: PrepTemplate[]; tournament: PrepTemplate[] }
+
+/** Editable prep templates for one split. Saved on demand, and used by new items in that split. */
+function PrepTemplateEditor({ split, repo }: { split: Split; repo: Repo | null }) {
+  const [draft, setDraft] = useState<PrepDraft>(() => ({
+    test: prepTemplatesFor(split, 'test'),
+    tournament: prepTemplatesFor(split, 'tournament'),
+  }))
+  const [status, setStatus] = useState('')
+
+  const update = (kind: keyof PrepDraft, list: PrepTemplate[]) => {
+    setDraft((d) => ({ ...d, [kind]: list }))
+    setStatus('')
+  }
+
+  const save = async () => {
+    if (!repo) return
+    const clean = (list: PrepTemplate[]) =>
+      list.filter((t) => t.title.trim()).map((t) => ({ ...t, title: t.title.trim() }))
+    await repo.putSplit({
+      ...split,
+      prepTemplates: { test: clean(draft.test), tournament: clean(draft.tournament) },
+    })
+    setStatus(`Saved prep templates for ${split.name}.`)
+  }
+
+  const sections: { kind: keyof PrepDraft; label: string }[] = [
+    { kind: 'test', label: 'Test' },
+    { kind: 'tournament', label: 'Tournament' },
+  ]
+
+  return (
+    <details style={{ marginTop: 32 }}>
+      <summary>Prep templates for {split.name}</summary>
+      <p className="muted" style={{ marginTop: 8 }}>
+        Counted back from the test or tournament date. New items in this split start with these tasks.
+      </p>
+      {sections.map(({ kind, label }) => (
+        <fieldset key={kind} className="prep" style={{ marginTop: 12 }}>
+          <legend>{label}</legend>
+          {draft[kind].map((t, index) => (
+            <div key={t.id} className="prep-row">
+              <input
+                aria-label={`${label} prep task ${index + 1} title`}
+                value={t.title}
+                onChange={(e) =>
+                  update(kind, draft[kind].map((x, i) => (i === index ? { ...x, title: e.target.value } : x)))
+                }
+              />
+              <input
+                aria-label={`${label} prep task ${index + 1} days before`}
+                type="number"
+                min={0}
+                step={1}
+                value={t.daysBefore}
+                onChange={(e) =>
+                  update(
+                    kind,
+                    draft[kind].map((x, i) =>
+                      i === index ? { ...x, daysBefore: Math.max(0, Math.round(Number(e.target.value) || 0)) } : x,
+                    ),
+                  )
+                }
+              />
+              <button
+                type="button"
+                className="btn"
+                aria-label={`Remove ${label} prep task ${index + 1}`}
+                onClick={() => update(kind, draft[kind].filter((_, i) => i !== index))}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="btn"
+            onClick={() => update(kind, [...draft[kind], { id: crypto.randomUUID(), title: '', daysBefore: 1 }])}
+          >
+            Add task
+          </button>
+        </fieldset>
+      ))}
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <button type="button" className="btn btn-primary" onClick={save} disabled={!repo}>
+          Save templates
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            setDraft({ test: defaultPrepTemplates('test'), tournament: defaultPrepTemplates('tournament') })
+            setStatus('')
+          }}
+        >
+          Reset to defaults
+        </button>
+      </div>
+      <p role="status" aria-live="polite" className="muted">
+        {status}
+      </p>
+    </details>
   )
 }
 
@@ -59,7 +158,7 @@ type Props = {
   splits: Split[]
   items: Item[]
   repo: Repo | null
-  onOpen: (item: Item) => void
+  onOpen: (item: Item, occurrenceKey?: string) => void
 }
 
 export function SplitsView({ splits, items, repo, onOpen }: Props) {
@@ -76,6 +175,12 @@ export function SplitsView({ splits, items, repo, onOpen }: Props) {
   const [prep, setPrep] = useState<DraftPrep[]>([])
   const [message, setMessage] = useState('')
 
+  const itemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
+  const rowMeta = (item: Item) => {
+    const parent = item.prepFor ? itemById.get(item.prepFor) : undefined
+    return [kindMeta(item), parent ? `Prep for ${parent.title}` : ''].filter(Boolean).join(' · ')
+  }
+
   const splitItems = useMemo(() => (selected ? items.filter((i) => i.splitId === selected.id) : []), [items, selected])
   const open = splitItems
     .filter((i) => !i.completed)
@@ -85,7 +190,7 @@ export function SplitsView({ splits, items, repo, onOpen }: Props) {
 
   const chooseKind = (k: ItemKind) => {
     setKind(k)
-    setPrep(templatesFor(k).map((t) => ({ ...t, checked: true })))
+    setPrep(prepTemplatesFor(selected, k).map((t) => ({ ...t, checked: true })))
   }
 
   const addSplit = async (e: FormEvent) => {
@@ -136,19 +241,20 @@ export function SplitsView({ splits, items, repo, onOpen }: Props) {
 
     const steps = backwardPlan(date, prep.filter((p) => p.checked && p.title.trim()))
     for (const step of steps) {
-      await repo.putItem(
-        itemFromQuickAdd(
+      await repo.putItem({
+        ...itemFromQuickAdd(
           { title: step.title, kind: 'homework', splitId: selected.id, dueAt: step.dueAt, summary: '' },
           splits,
           created,
         ),
-      )
+        prepFor: item.id,
+      })
     }
     setMessage(
       `Added "${item.title}"${steps.length ? ` with ${steps.length} prep ${steps.length === 1 ? 'task' : 'tasks'}` : ''}.`,
     )
     setTitle('')
-    setPrep(templatesFor(kind).map((t) => ({ ...t, checked: true })))
+    setPrep(prepTemplatesFor(selected, kind).map((t) => ({ ...t, checked: true })))
   }
 
   return (
@@ -207,9 +313,9 @@ export function SplitsView({ splits, items, repo, onOpen }: Props) {
                   <input id="new-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                 </div>
 
-                {prep.length > 0 && (
+                {(kind === 'test' || kind === 'tournament') && (
                   <fieldset className="prep">
-                    <legend>Prep plan, spaced backward from the date</legend>
+                    <legend>Prep plan, counted back from the date</legend>
                     {prep.map((p, index) => {
                       const due = dayKey(backwardPlan(date, [p])[0].dueAt)
                       return (
@@ -232,10 +338,39 @@ export function SplitsView({ splits, items, repo, onOpen }: Props) {
                               setPrep((list) => list.map((x, i) => (i === index ? { ...x, title: e.target.value } : x)))
                             }
                           />
+                          <input
+                            aria-label={`Prep task ${index + 1} days before`}
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={p.daysBefore}
+                            onChange={(e) =>
+                              setPrep((list) =>
+                                list.map((x, i) =>
+                                  i === index ? { ...x, daysBefore: Math.max(0, Math.round(Number(e.target.value) || 0)) } : x,
+                                ),
+                              )
+                            }
+                          />
                           <span className="muted prep-due">{formatDayLabel(due)}</span>
+                          <button
+                            type="button"
+                            className="btn"
+                            aria-label={`Remove prep task ${index + 1}`}
+                            onClick={() => setPrep((list) => list.filter((_, i) => i !== index))}
+                          >
+                            Remove
+                          </button>
                         </div>
                       )
                     })}
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => setPrep((list) => [...list, { id: crypto.randomUUID(), title: '', daysBefore: 1, checked: true }])}
+                    >
+                      Add prep task
+                    </button>
                   </fieldset>
                 )}
 
@@ -260,9 +395,9 @@ export function SplitsView({ splits, items, repo, onOpen }: Props) {
                       dateKey={today}
                       done={item.completed}
                       overdue={item.dueAt != null && item.dueAt < now}
-                      extraMeta={kindMeta(item)}
+                      extraMeta={rowMeta(item)}
                       onToggle={(it) => repo?.putItem(toggleDone(it, today))}
-                      onOpen={onOpen}
+                      onOpen={(item) => onOpen(item)}
                     />
                   ))}
                 </ul>
@@ -284,9 +419,9 @@ export function SplitsView({ splits, items, repo, onOpen }: Props) {
                         dateKey={today}
                         done
                         overdue={false}
-                        extraMeta={kindMeta(item)}
+                        extraMeta={rowMeta(item)}
                         onToggle={(it) => repo?.putItem(toggleDone(it, today))}
-                        onOpen={onOpen}
+                        onOpen={(item) => onOpen(item)}
                       />
                     ))}
                   </ul>
@@ -296,6 +431,8 @@ export function SplitsView({ splits, items, repo, onOpen }: Props) {
           )}
         </>
       )}
+
+      {selected && <PrepTemplateEditor key={selected.id} split={selected} repo={repo} />}
 
       <h2 className="section-title" style={{ marginTop: 40 }}>
         Manage splits

@@ -91,6 +91,8 @@ export function anchorKey(item: Item): string {
 export type Occurrence = {
   item: Item
   key: string
+  /** Title for this day, honoring a single-occurrence override. */
+  title: string
   startsAt?: number
   endsAt?: number
   dueAt?: number
@@ -116,13 +118,31 @@ export function occursOn(item: Item, key: string, rotationAnchor?: string): bool
     if (item.dueAt != null) return dayKey(item.dueAt) === key
     return false
   }
-  const rot = item.recurrence.rotation
-  if (rot) {
+  if (item.skippedOccurrences?.includes(key)) return false
+  if (!ruleMatches(item, key, rotationAnchor)) return false
+  const count = item.recurrence.count
+  return count == null || seriesPosition(item, key, rotationAnchor) <= count
+}
+
+/** Whether a recurring item's rule lands on the day, ignoring skips and the end count. */
+function ruleMatches(item: Item, key: string, rotationAnchor?: string): boolean {
+  const rec = item.recurrence
+  if (!rec) return false
+  if (rec.rotation) {
     // Without a split anchor, the item's own date marks an A week.
     const isA = sameRotationWeek(rotationAnchor ?? anchorKey(item), key)
-    if (rot === 'A' ? !isA : isA) return false
+    if (rec.rotation === 'A' ? !isA : isA) return false
   }
-  return recurrenceMatches(item.recurrence, anchorKey(item), key)
+  return recurrenceMatches(rec, anchorKey(item), key)
+}
+
+/** 1-based position of a day in its series. Skipped days still count. */
+function seriesPosition(item: Item, key: string, rotationAnchor?: string): number {
+  let n = 0
+  for (let d = anchorKey(item); d <= key; d = addDays(d, 1)) {
+    if (ruleMatches(item, d, rotationAnchor)) n++
+  }
+  return n
 }
 
 /** Expand an item into the occurrence for one day, or null. */
@@ -135,6 +155,7 @@ export function occurrenceOn(item: Item, key: string, rotationAnchor?: string): 
   return {
     item,
     key,
+    title: (recurring && item.occurrenceTitles?.[key]) || item.title,
     startsAt: shift(item.startsAt),
     endsAt: shift(item.endsAt),
     dueAt: shift(item.dueAt),

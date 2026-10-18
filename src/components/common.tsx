@@ -53,6 +53,8 @@ export function subtaskProgress(item: Item): string | null {
 
 type ItemRowProps = {
   item: Item
+  /** Title shown for this occurrence, when it differs from the item's title. */
+  title?: string
   split: Split | undefined
   /** Day key used for recurring completion. */
   dateKey: string
@@ -60,10 +62,21 @@ type ItemRowProps = {
   overdue?: boolean
   extraMeta?: string
   onToggle: (item: Item, dateKey: string) => void
-  onOpen: (item: Item) => void
+  onOpen: (item: Item, occurrenceKey?: string) => void
 }
 
-export function ItemRow({ item, split, dateKey, done, overdue, extraMeta, onToggle, onOpen }: ItemRowProps) {
+/** Small marker for recurring items. Drawn in the current text color. */
+export function RepeatMark() {
+  return (
+    <svg className="repeat-mark" width="12" height="12" viewBox="0 0 16 16" role="img" aria-label="Repeats">
+      <path d="M3 8a5 5 0 0 1 9-3M13 8a5 5 0 0 1-9 3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M12 2v3h-3M4 14v-3h3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  )
+}
+
+export function ItemRow({ item, title, split, dateKey, done, overdue, extraMeta, onToggle, onOpen }: ItemRowProps) {
+  const shownTitle = title ?? item.title
   const meta = [
     KIND_LABEL[item.kind],
     item.kind === 'homework' && item.className ? item.className : null,
@@ -81,11 +94,11 @@ export function ItemRow({ item, split, dateKey, done, overdue, extraMeta, onTogg
         className="check"
         checked={done}
         onChange={() => onToggle(item, dateKey)}
-        aria-label={`Mark "${item.title}" ${done ? 'not done' : 'done'}`}
+        aria-label={`Mark "${shownTitle}" ${done ? 'not done' : 'done'}`}
       />
       <div style={{ minWidth: 0 }}>
-        <button type="button" className={`item-title${done ? ' done' : ''}`} onClick={() => onOpen(item)}>
-          {item.title}
+        <button type="button" className={`item-title${done ? ' done' : ''}`} onClick={() => onOpen(item, dateKey)}>
+          {shownTitle}
         </button>
         <div className="item-meta">
           {split && (
@@ -98,6 +111,7 @@ export function ItemRow({ item, split, dateKey, done, overdue, extraMeta, onTogg
             <span key={i}>{m}</span>
           ))}
           {due && <span className={overdue ? 'overdue-label' : undefined}>{overdue ? `Overdue, ${due}` : `Due ${due}`}</span>}
+          {item.recurrence && <RepeatMark />}
         </div>
         {item.kind === 'project' && subtaskCounts(item) && (
           <progress

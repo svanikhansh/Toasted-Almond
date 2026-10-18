@@ -1,5 +1,8 @@
 export type ItemKind = 'homework' | 'test' | 'project' | 'tournament' | 'club'
 
+/** A prep task counted back from a test or tournament date. */
+export type PrepTemplate = { id: string; title: string; daysBefore: number }
+
 export type Split = {
   id: string
   name: string
@@ -8,6 +11,8 @@ export type Split = {
   archived: boolean
   /** Any day in an A week. Weeks alternate A and B from this week. */
   rotationAnchor?: string
+  /** Per-kind prep templates. Unset kinds use the built-in defaults. */
+  prepTemplates?: { test?: PrepTemplate[]; tournament?: PrepTemplate[] }
 }
 
 export type Subtask = { id: string; title: string; done: boolean }
@@ -27,6 +32,8 @@ export type Recurrence = {
   byWeekday?: number[]
   /** Last day key (YYYY-MM-DD) that can occur. */
   until?: string
+  /** Total scheduled occurrences, counting skipped ones. */
+  count?: number
   /** Only occur in A or B weeks of the split's rotation. Unset means every week. */
   rotation?: 'A' | 'B'
 }
@@ -47,7 +54,13 @@ export type ItemBase = {
   completedAt?: number
   /** Day keys of completed recurring occurrences. */
   completedOccurrences: string[]
+  /** Day keys of recurring occurrences removed from the series. */
+  skippedOccurrences?: string[]
+  /** Title overrides for single occurrences, keyed by day key. */
+  occurrenceTitles?: Record<string, string>
   recurrence?: Recurrence
+  /** Id of the test or tournament this prep task was generated for. */
+  prepFor?: string
   createdAt: number
   updatedAt: number
 }

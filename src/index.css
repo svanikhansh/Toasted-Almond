@@ -387,6 +387,58 @@ button {
   gap: 8px;
   margin-top: 16px;
 }
+.plain-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 12px;
+  min-width: 0;
+}
+.plain-fieldset:disabled {
+  opacity: 0.55;
+}
+.prep-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.prep-row input:not([type='checkbox']) {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  min-height: 36px;
+}
+.prep-row input[type='text'],
+.prep-row input:not([type]) {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.prep-row input[type='number'] {
+  width: 80px;
+}
+.scope-row,
+.weekday-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 12px;
+}
+.scope-row {
+  flex-direction: column;
+}
+.scope-row label,
+.weekday-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.repeat-mark {
+  display: inline-flex;
+  color: var(--muted);
+  vertical-align: middle;
+}
 
 /* Today */
 .date-heading {

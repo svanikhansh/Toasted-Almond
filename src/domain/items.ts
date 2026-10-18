@@ -1,4 +1,4 @@
-import { dayKey, MIN, occurrenceOn, parseDayKey } from './dates'
+import { dayKey, MIN, occurrenceOn, parseDayKey, type Occurrence } from './dates'
 import type { QuickAddResult } from './quickAdd'
 import type { Item, Split, WorkBlock } from './types'
 
@@ -61,16 +61,24 @@ export function toggleDone(item: Item, key: string, now = Date.now()): Item {
   return { ...item, completed, completedAt: completed ? now : undefined, updatedAt: now }
 }
 
-/** Open, non-recurring deadline items due on the given day. */
-export function dueOn(items: Item[], key: string): Item[] {
-  return items.filter(
-    (i) =>
-      !i.completed &&
-      !i.recurrence &&
-      !isFixedEvent(i) &&
-      i.dueAt != null &&
-      dayKey(i.dueAt) === key,
-  )
+/**
+ * Open deadline occurrences due on the given day. Recurring items expand by
+ * their rule and split's rotation anchor, and each occurrence has its own done state.
+ */
+export function dueOn(
+  items: Item[],
+  key: string,
+  rotationAnchorOf: (item: Item) => string | undefined = () => undefined,
+): Occurrence[] {
+  return items.flatMap((i): Occurrence[] => {
+    if (isFixedEvent(i) || i.dueAt == null) return []
+    if (!i.recurrence) {
+      if (i.completed || dayKey(i.dueAt) !== key) return []
+      return [{ item: i, key, title: i.title, dueAt: i.dueAt, done: false }]
+    }
+    const o = occurrenceOn(i, key, rotationAnchorOf(i))
+    return o && o.dueAt != null ? [o] : []
+  })
 }
 
 /** Open deadline items whose day is before the given day. */

@@ -4,8 +4,10 @@ import { itemFromQuickAdd } from './items'
 import {
   HEAVY_DAY_MINUTES,
   TEST_PREP,
+  TOURNAMENT_PREP,
   backwardPlan,
   dailyLoad,
+  prepTemplatesFor,
   studyPlan,
   weekTotalsBySplit,
 } from './planning'
@@ -20,13 +22,31 @@ const NOW = atMinute('2026-10-12', 8 * 60)
 describe('backwardPlan', () => {
   it('spaces prep tasks backward from the anchor at 5 pm', () => {
     const plan = backwardPlan('2026-10-20', TEST_PREP)
-    expect(plan.map((p) => dayKey(p.dueAt))).toEqual(['2026-10-13', '2026-10-16', '2026-10-18', '2026-10-19'])
+    expect(plan.map((p) => dayKey(p.dueAt))).toEqual(['2026-10-13', '2026-10-17', '2026-10-19'])
     expect(new Date(plan[0].dueAt).getHours()).toBe(17)
-    expect(plan[0].templateId).toBe('gather')
+    expect(plan[0].templateId).toBe('review')
   })
 
   it('returns nothing for an empty template list', () => {
     expect(backwardPlan('2026-10-20', [])).toEqual([])
+  })
+})
+
+describe('prepTemplatesFor', () => {
+  it('uses the built-in defaults when a split has no override', () => {
+    expect(prepTemplatesFor(splits[1], 'test')).toEqual(TEST_PREP)
+    expect(prepTemplatesFor(splits[1], 'tournament')).toEqual(TOURNAMENT_PREP)
+  })
+
+  it('uses a split override for its kind only', () => {
+    const custom = [{ id: 'x', title: 'Flashcards', daysBefore: 5 }]
+    const split: Split = { ...splits[1], prepTemplates: { test: custom } }
+    expect(prepTemplatesFor(split, 'test')).toEqual(custom)
+    expect(prepTemplatesFor(split, 'tournament')).toEqual(TOURNAMENT_PREP)
+  })
+
+  it('has no prep for other kinds', () => {
+    expect(prepTemplatesFor(splits[1], 'homework')).toEqual([])
   })
 })
 

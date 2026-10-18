@@ -1,23 +1,34 @@
 import { atMinute, addDays, dayKey, MIN } from './dates'
-import type { Item, WorkBlock } from './types'
+import type { Item, ItemKind, PrepTemplate, Split, WorkBlock } from './types'
+
+export type { PrepTemplate }
 
 /** Hours of planned work on one day above which the day is flagged, gently. */
 export const HEAVY_DAY_MINUTES = 6 * 60
 
-export type PrepTemplate = { id: string; title: string; daysBefore: number }
-
 export const TEST_PREP: PrepTemplate[] = [
-  { id: 'gather', title: 'Gather notes and topics', daysBefore: 7 },
-  { id: 'practice', title: 'Practice problems', daysBefore: 4 },
-  { id: 'weak', title: 'Review weak topics', daysBefore: 2 },
-  { id: 'light', title: 'Light review and sleep', daysBefore: 1 },
+  { id: 'review', title: 'Review notes', daysBefore: 7 },
+  { id: 'practice', title: 'Practice set', daysBefore: 3 },
+  { id: 'light', title: 'Light review the night before', daysBefore: 1 },
 ]
 
 export const TOURNAMENT_PREP: PrepTemplate[] = [
-  { id: 'travel', title: 'Confirm travel and lodging', daysBefore: 7 },
-  { id: 'scout', title: 'Scout the bracket', daysBefore: 3 },
-  { id: 'pack', title: 'Pack gear and checklist', daysBefore: 1 },
+  { id: 'packing', title: 'Packing list', daysBefore: 3 },
+  { id: 'logistics', title: 'Logistics check', daysBefore: 1 },
 ]
+
+/** Default prep templates for a kind, or none for kinds without prep. */
+export function defaultPrepTemplates(kind: ItemKind): PrepTemplate[] {
+  if (kind === 'test') return TEST_PREP
+  if (kind === 'tournament') return TOURNAMENT_PREP
+  return []
+}
+
+/** A split's own prep templates for a kind, falling back to the defaults. */
+export function prepTemplatesFor(split: Split | null | undefined, kind: ItemKind): PrepTemplate[] {
+  if (kind !== 'test' && kind !== 'tournament') return []
+  return split?.prepTemplates?.[kind] ?? defaultPrepTemplates(kind)
+}
 
 /** Prep deadlines spaced backward from an anchor date, due at 5 pm the day before each step. */
 export function backwardPlan(
