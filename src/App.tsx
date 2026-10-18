@@ -78,6 +78,15 @@ function Shell() {
         quickAddRef.current?.focus()
         return
       }
+      if (key === 'x') {
+        const row = document.activeElement?.closest('.item-row')
+        const check = row?.querySelector<HTMLInputElement>('input.check')
+        if (check) {
+          e.preventDefault()
+          check.click()
+        }
+        return
+      }
       const view = VIEWS.find((v) => v.key === key)
       if (view) {
         setView(view.id)
@@ -247,7 +256,7 @@ function Shell() {
           />
         </div>
         <p className="shortcuts muted" aria-label="Keyboard shortcuts">
-          N quick add, T W M P L switch views, [ ] previous or next
+          N quick add, T W M P L switch views, [ ] previous or next, X completes the focused task
         </p>
         <p role="status" aria-live="polite" className="muted">
           {notice}

@@ -39,14 +39,16 @@ export function dueLabel(item: Item): string | null {
   return hasTime ? `${when}, ${formatTime(item.dueAt)}` : `${when}`
 }
 
-export function subtaskProgress(item: Item): string | null {
-  const subs =
-    item.kind === 'project'
-      ? item.milestones.flatMap((m) => m.subtasks)
-      : item.subtasks
+/** Completed and total sub-tasks. Projects count sub-tasks across all milestones. */
+export function subtaskCounts(item: Item): { done: number; total: number } | null {
+  const subs = item.kind === 'project' ? item.milestones.flatMap((m) => m.subtasks) : item.subtasks
   if (!subs.length) return null
-  const done = subs.filter((s) => s.done).length
-  return `${done}/${subs.length} done`
+  return { done: subs.filter((s) => s.done).length, total: subs.length }
+}
+
+export function subtaskProgress(item: Item): string | null {
+  const counts = subtaskCounts(item)
+  return counts ? `${counts.done}/${counts.total} done` : null
 }
 
 type ItemRowProps = {
@@ -97,6 +99,15 @@ export function ItemRow({ item, split, dateKey, done, overdue, extraMeta, onTogg
           ))}
           {due && <span className={overdue ? 'overdue-label' : undefined}>{overdue ? `Overdue, ${due}` : `Due ${due}`}</span>}
         </div>
+        {item.kind === 'project' && subtaskCounts(item) && (
+          <progress
+            className="subtask-progress"
+            max={subtaskCounts(item)!.total}
+            value={subtaskCounts(item)!.done}
+            aria-label={`${item.title} progress`}
+            style={{ accentColor: split?.color ?? 'var(--ink-muted)' }}
+          />
+        )}
       </div>
     </li>
   )
